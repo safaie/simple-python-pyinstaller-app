@@ -1,52 +1,21 @@
 version: 2.1
-jobs:
-  build:
-    docker:
-      - image: 'python:2-alpine'
-    steps:
-      - run:
-          command: python -m py_compile sources/add2vals.py sources/calc.py
-      - run:
-          name: |
-            Keyword not recognized
-          command: exit 1
-          JFC_STACK_TRACE: |-
-            Please refer to CircleCI documentation (https://circleci.com/docs/reference-2-1/#section=configuration)
-            and/or submit an issue at https://github.com/circleci/jenkinsfile-converter
-            stash compiled-results
-  test:
-    docker:
-      - image: qnib/pytest
-    steps:
-      - run:
-          command: py.test --junit-xml test-reports/results.xml sources/test_calc.py
-  deliver:
-    docker:
-      - image: 'cimg/base:2020.12'
-    environment:
-      VOLUME: '$(pwd)/sources:/src'
-      IMAGE: 'cdrx/pyinstaller-linux:python2'
-    steps:
-      - run:
-          name: Use CircleCI caches or workspaces
-          command: exit 1
-          JFC_STACK_TRACE: 'unstash compiled-resultsCircleCI has different syntax for working with persisted data. Here''s a good place to start:                 https://circleci.com/docs/2.0/concepts/#caches-workspaces-and-artifacts/'
-      - run:
-          name: Confirm environment variables are set before running
-          command: exit 1
-          JFC_STACK_TRACE: |-
-            Please refer to environment variable documentation for more information
-            https://circleci.com/docs/2.0/env-vars/
-            sh "docker run --rm -v ${VOLUME} ${IMAGE} 'pyinstaller -F add2vals.py'"
-workflows:
-  version: 2
-  build-and-test:
-    jobs:
-      - build
-      - test:
-          requires:
-            - build
-      - deliver:
-          requires:
-            - test
 
+orbs:
+  python: circleci/python@1.3.2
+
+jobs:
+  publish:
+    executor: python/default
+    steps:
+      - checkout
+      - python/dist
+      - run: pip install twine && twine upload
+
+workflows:
+  main:
+    jobs:
+      - python/test:
+          args: '--dev'
+          pkg-manager: pipenv
+          test-tool: pytest
+      - publish
